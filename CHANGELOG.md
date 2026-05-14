@@ -11,6 +11,16 @@ checklist.
 
 ## [Unreleased]
 
+## [3.38.1] - 2026-05-14
+
+### Fixed — CodeQL `js/clear-text-logging` false positive on the "already running" banner
+
+The port-conflict banner shipped in v3.37.20 (#266) logs the `oauth` field from `/health`. That field is a status enum (`'healthy' | 'expired' | 'broken' | 'none' | 'degraded'`) — not a token, not a credential. CodeQL's `js/clear-text-logging` heuristic flags any logged field whose key contains "oauth" regardless of value, so the v3.38.0 release triggered a security alert at the repo level.
+
+Replaced the direct `body.oauth` interpolation with an allow-list filter: only the known status enum values are passed through; anything else (including a hypothetical malicious `/health` impersonator returning a real token in the field) is reported as `unknown`. The fix is defense-in-depth — `/health` is on `127.0.0.1` by default and the route handler never reads tokens into the response — but it eliminates the heuristic alert at source.
+
+No runtime behavior change for legitimate dario instances. The status string shown to operators is identical to v3.37.20–v3.38.0.
+
 ## [3.38.0] - 2026-05-14
 
 ### Added — response-correlated think time + session-start jitter (#267)

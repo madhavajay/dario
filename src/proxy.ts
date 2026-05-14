@@ -2196,10 +2196,19 @@ export async function startProxy(opts: ProxyOptions = {}): Promise<void> {
         const res = await fetch(`http://${displayHost}:${port}/health`);
         const body = await res.json() as Record<string, unknown>;
         if (body && (body.status === 'ok' || body.status === 'degraded')) {
+          // The /health endpoint's `oauth` field is a status enum
+          // ('healthy' | 'expired' | 'broken' | 'none') — not a token
+          // and not any kind of credential. CodeQL's clear-text-logging
+          // heuristic flags any logged field whose key contains "oauth",
+          // so we whitelist by allow-list rather than disable the rule.
+          const allowedOauthStatuses = new Set(['healthy', 'expired', 'broken', 'none', 'degraded']);
+          const rawOauth = typeof body.oauth === 'string' ? body.oauth : '';
+          const oauthStatusLabel = allowedOauthStatuses.has(rawOauth) ? rawOauth : 'unknown';
+          const requestsServed = typeof body.requests === 'number' ? body.requests : 0;
           console.log('');
           console.log(`  dario — already running on http://${displayHost}:${port}`);
           console.log('');
-          console.log(`  OAuth: ${body.oauth ?? 'unknown'}  |  requests served: ${body.requests ?? 0}`);
+          console.log(`  OAuth: ${oauthStatusLabel}  |  requests served: ${requestsServed}`);
           console.log('');
           console.log('  Usage:');
           console.log(`    ANTHROPIC_BASE_URL=http://${displayHost}:${port}`);
