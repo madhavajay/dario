@@ -1,7 +1,6 @@
 <p align="center">
   <h1 align="center">dario</h1>
-  <p align="center"><strong>Use your Claude Pro/Max subscription with Cursor, Aider, Cline, Zed, Codex CLI, the Claude Agent SDK — any tool that speaks Anthropic or OpenAI.</strong></p>
-  <p align="center">A local LLM router. One endpoint, every provider. Your Claude subscription — Pro ($20), Max 5x ($100), or Max 20x ($200) — stops sitting idle in Claude Code while you pay per-token everywhere else. Speaks both the Anthropic Messages API and the OpenAI Chat Completions API at <code>http://localhost:3456</code>.</p>
+  <p align="center"><strong>Your Claude Pro/Max subscription works in exactly one place: Claude Code.<br>dario makes it work everywhere — at subscription pricing, not per-token API bills.</strong></p>
 </p>
 
 <p align="center">
@@ -10,29 +9,92 @@
   <a href="https://github.com/askalf/dario/actions/workflows/codeql.yml"><img src="https://github.com/askalf/dario/actions/workflows/codeql.yml/badge.svg" alt="CodeQL"></a>
   <a href="https://github.com/askalf/dario/blob/master/LICENSE"><img src="https://img.shields.io/npm/l/@askalf/dario" alt="License"></a>
   <a href="https://www.npmjs.com/package/@askalf/dario"><img src="https://img.shields.io/npm/dm/@askalf/dario" alt="Downloads"></a>
-</p>
-
-<p align="center">
   <a href="https://x.com/ask_alf"><img src="https://img.shields.io/badge/follow-@ask_alf-1da1f2?style=flat-square" alt="Follow on X"></a>
-  <a href="https://askalf.org"><img src="https://img.shields.io/badge/askalf.org-platform-00ff88?style=flat-square" alt="askalf"></a>
 </p>
 
-<p align="center"><em>Zero runtime dependencies. <a href="https://www.npmjs.com/package/@askalf/dario">SLSA-attested</a> on every release. Nothing phones home. Independent, unofficial, third-party — see <a href="DISCLAIMER.md">DISCLAIMER.md</a>.</em></p>
-
-> **dario is the open-source wedge of [askalf](https://askalf.org)** — the AI workforce platform we're building. Dario solves the Claude subscription problem so the rest of the workforce can run on flat-rate billing. Star this repo or follow [@ask_alf](https://x.com/ask_alf) for platform updates.
+<p align="center"><em>Zero runtime dependencies · <a href="https://www.npmjs.com/package/@askalf/dario">SLSA-attested</a> every release · nothing phones home · ~13k lines you can read in a weekend · independent, unofficial, third-party (<a href="DISCLAIMER.md">DISCLAIMER.md</a>)</em></p>
 
 ---
 
-## 30 seconds
+You're already paying $20, $100, or $200 a month for Claude. Then Cursor wants an API key. Aider wants an API key. Cline, Continue, Zed, your scripts — every one of them bills you **again**, per token, while the subscription you already bought sits idle in Claude Code.
+
+**dario is one local endpoint that routes all of them through the Claude subscription you already pay for.** Point any Anthropic- or OpenAI-compatible tool at `http://localhost:3456` and you're done. No per-tool config, no second bill.
+
+```bash
+npm install -g @askalf/dario
+dario login          # uses your existing Claude Code credentials
+dario proxy
+export ANTHROPIC_BASE_URL=http://localhost:3456
+export ANTHROPIC_API_KEY=dario
+```
+
+That's the whole setup. Every tool that honors those env vars now runs on your subscription.
+
+---
+
+## The money
+
+| Setup | Monthly cost — heavy user |
+|---|---|
+| Cursor + Anthropic API direct | **$80–$300** |
+| Multi-tool heavy use (Cursor + Aider + Cline + Continue), per-token | **$200–$600+** |
+| **Any of the above + dario** | **$20–$200 flat** — your existing Pro/Max plan, nothing extra |
+
+Switching providers is a model-name change, not a reconfigure: `claude-opus-4-7`, `gpt-4o`, `llama-3.3-70b`, anything on OpenRouter/Groq/Ollama. Add a backend once (`dario backend add openai --key=…`) and the same `localhost:3456` speaks OpenAI too.
+
+---
+
+## The deadline: 2026-06-15
+
+On **2026-06-15**, Anthropic splits Claude billing in two. Agentic traffic — Agent SDK, `claude -p` headless — stops counting against your subscription and gets a small fixed monthly credit instead:
+
+| Plan | New Agent-SDK / `claude -p` credit | After it's gone |
+|---|---|---|
+| Pro | $20/mo | per-token API pricing |
+| Max 5x | $100/mo | per-token API pricing |
+| Max 20x | $200/mo | per-token API pricing |
+
+A sustained Cline or Aider session burns $100 of API-rate tokens in an evening. **Any proxy that forwards requests in their original `claude -p` / Agent-SDK shape — which is most of them — dumps your agentic traffic into that small credit bucket, then onto metered pricing.**
+
+dario doesn't. Every outbound request is rebuilt into **interactive Claude Code wire-shape** before it leaves your machine — headers, body key order, TLS stack, session-id lifecycle, and (v3.38, `--stealth`) the temporal axis: response-correlated think-time and session-start latency. Anthropic's billing classifier sees an interactive Claude Code session. Your traffic stays in the subscription pool you already pay for.
+
+| Your setup | After 2026-06-15 |
+|---|---|
+| Any tool → Anthropic API direct | per-token API |
+| Any tool → proxy that forwards requests as-is | **$20–200/mo credit, then per-token** |
+| **Any tool → dario** | **subscription pool — unchanged** |
+| Claude Code, interactive | subscription pool — unchanged |
+
+Same install, same `localhost:3456`, no config change for the cliff. Verify on your own machine: `dario doctor --usage` fires one request and surfaces the rate-limit headers — `representative-claim` should read `five_hour` or `seven_day` (subscription buckets). Full breakdown + post-cliff verification: [`docs/why-now-2026-06.md`](./docs/why-now-2026-06.md).
+
+---
+
+## Does it actually work?
+
+Four LLMs reviewed the codebase cold, same prompt ([`reviews/PROMPT.md`](./reviews/PROMPT.md)), each signed a verdict:
+
+> "Not vibe-coded; it reads like production-grade infrastructure that happens to be open-source." — **Grok 4** ([full](./reviews/grok-4-2026-04-21.md))
+>
+> "The implementation isn't just a simple header swap; it is a sophisticated request-level deepfake." — **Gemini 2.0 Pro** ([full](./reviews/gemini-2-pro-2026-04-21.md))
+>
+> "Not 'best-effort mimicry'; it's capture-and-replay of a real client." — **GPT-5.3** ([full](./reviews/gpt-5.3-2026-04-21.md))
+>
+> "The fingerprint-replay claim is backed by the code." — **Claude Opus 4.7** ([full](./reviews/claude-opus-4-7-2026-04-21.md))
+
+The mechanism: dario doesn't *guess* Claude Code's request shape — it captures it live from your installed `claude` binary on every startup, drift-detects against each upstream CC release, and replays it byte-for-byte. That's why the billing classifier can't tell the difference. Deep dive: [`docs/wire-fidelity.md`](./docs/wire-fidelity.md).
+
+---
+
+## 30 seconds, in full
 
 ```bash
 # 1. Install
 npm install -g @askalf/dario
 
 # 2. Log in to your Claude subscription (Pro, Max 5x, or Max 20x)
-dario login                      # or `dario login --manual` for SSH / headless setups
+dario login                 # or `dario login --manual` for SSH / headless
 
-# 3. Start the local Claude API proxy
+# 3. Start the local proxy
 dario proxy
 
 # 4. Point any Anthropic-compat tool at it
@@ -40,11 +102,9 @@ export ANTHROPIC_BASE_URL=http://localhost:3456
 export ANTHROPIC_API_KEY=dario
 ```
 
-Done. Every tool that honors those env vars — Claude Code, Cursor, Aider, Cline, Roo Code, Continue.dev, Zed, Windsurf, OpenHands, OpenClaw, Hermes, Codex CLI, the [Claude Agent SDK](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk), your own scripts — now routes through your **Claude subscription** (Pro / Max 5x / Max 20x) instead of per-token API pricing. Dario sends the same request shape Claude Code itself sends, which is the shape the subscription-billing path recognizes.
+Works with: Claude Code, Cursor, Aider, Cline, Roo Code, Continue.dev, Zed, Windsurf, OpenHands, OpenClaw, Hermes, Codex CLI, the [Claude Agent SDK](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk), your own scripts.
 
-Prefer Docker? `ghcr.io/askalf/dario:latest` is a multi-arch (`linux/amd64` + `linux/arm64`) image published on every release — homelab, k8s, NAS. Full guide: [`docs/docker.md`](./docs/docker.md).
-
-For OpenAI / Groq / OpenRouter / Ollama / LiteLLM / vLLM, add one backend line and reuse the same proxy:
+Add other providers and reuse the same proxy:
 
 ```bash
 dario backend add openai     --key=sk-proj-...
@@ -56,221 +116,53 @@ export OPENAI_BASE_URL=http://localhost:3456/v1
 export OPENAI_API_KEY=dario
 ```
 
-Switching providers is a **model-name change** in your tool — `claude-opus-4-7`, `gpt-4o`, `llama-3.3-70b`, any OpenRouter / Groq / local model — not a reconfigure. Force a specific backend with a prefix: `openai:gpt-4o`, `claude:opus`, `groq:llama-3.3-70b`, `local:qwen-coder`.
+Force a specific backend with a model prefix: `openai:gpt-4o`, `claude:opus`, `groq:llama-3.3-70b`, `local:qwen-coder`.
 
-Something not right? `dario doctor` prints a single paste-ready health report. Paste that when you file an issue.
+Prefer Docker? `ghcr.io/askalf/dario:latest` — multi-arch (`amd64`+`arm64`), published every release. Guide: [`docs/docker.md`](./docs/docker.md).
 
----
-
-## The 2026-06-15 billing cliff
-
-Starting **2026-06-15**, Anthropic splits Claude plan usage into two separate pools. The one that matters for coding agents:
-
-| Plan | New Agent-SDK / `claude -p` credit | What happens when it runs out |
-|---|---|---|
-| Pro | **$20/mo** | Per-token API pricing |
-| Max 5x | **$100/mo** | Per-token API pricing |
-| Max 20x | **$200/mo** | Per-token API pricing |
-
-A sustained Cline or Aider session burns $100 of API-rate tokens in an evening. Agentic loops blow past $200 in days. Any proxy that forwards requests in their original Agent-SDK or `claude -p` wire shape — which is most of them — puts your agentic traffic into this new credit pool instead of your subscription pool. Once it's gone, you're on metered pricing.
-
-**Dario doesn't.** Every outbound request is rebuilt as **interactive Claude Code wire-shape** before it leaves your machine: headers, body key order, TLS stack, session-id lifecycle — the same six static axes the live template extractor has been closing since v3.22 — plus, as of v3.38, the **temporal axis**: post-response read time correlated with response length, and 1.2–4.2s session-start latency. Toggle the behavioral layer on with `--stealth`. Anthropic's billing classifier sees an interactive CC session — static shape *and* inter-arrival distribution. Your traffic stays in the subscription pool you already pay for.
-
-| Your setup | Post-2026-06-15 billing path |
-|---|---|
-| Any tool → Anthropic API direct | Per-token API |
-| Any tool → proxy forwarding requests as-is | **Agent-SDK credit ($20–200/mo cap), then per-token API** |
-| **Any tool → dario** | **Subscription pool — unchanged** |
-| Claude Code interactive | Subscription pool — unchanged |
-
-Same install. Same `localhost:3456`. No config change needed for the cliff.
-
-**Verify it's working:** `dario doctor --usage` fires one Haiku request through your OAuth and surfaces the rate-limit headers Anthropic returned. The `representative-claim` field should read `five_hour` or `seven_day` — subscription billing buckets. If it reads anything else after 2026-06-15 lands, [file an issue](https://github.com/askalf/dario/issues/new) — that's what the drift detector exists to catch. Full technical breakdown + post-cliff verification procedure: [`docs/why-now-2026-06.md`](./docs/why-now-2026-06.md).
+Something off? `dario doctor` prints one paste-ready health report.
 
 ---
 
 ## What it actually does
 
-You point every tool at one URL. Dario reads each request, decides which backend owns it, and forwards in that backend's native protocol.
+You point every tool at one URL. Dario reads each request, decides which backend owns it, forwards in that backend's native protocol.
 
-| Client speaks | Model in request | dario routes to | What happens |
+| Client speaks | Model | Routes to | What happens |
 |---|---|---|---|
-| Anthropic Messages API | `claude-*` / `opus` / `sonnet` / `haiku` | Claude backend | OAuth swap + (optional) CC template replay → `api.anthropic.com` |
-| Anthropic Messages API | `gpt-*`, `llama-*`, etc. | OpenAI-compat backend | Anthropic → OpenAI translation, forwarded to configured backend |
-| OpenAI Chat Completions | `gpt-*` / `o1-*` / `o3-*` | OpenAI-compat backend | Passthrough: auth swap, body forwarded byte-for-byte |
-| OpenAI Chat Completions | `claude-*` | Claude backend | OpenAI → Anthropic translation, then the Claude backend path |
-| Either protocol | `<provider>:<model>` | Forced by prefix | Explicit override for ambiguous names |
+| Anthropic Messages | `claude-*` / `opus` / `sonnet` / `haiku` | Claude backend | OAuth swap + CC template replay → `api.anthropic.com` |
+| Anthropic Messages | `gpt-*`, `llama-*`, … | OpenAI-compat backend | Anthropic→OpenAI translation, forwarded |
+| OpenAI Chat | `gpt-*` / `o1-*` / `o3-*` | OpenAI-compat backend | Auth swap, body forwarded byte-for-byte |
+| OpenAI Chat | `claude-*` | Claude backend | OpenAI→Anthropic translation, then Claude path |
+| Either | `<provider>:<model>` | Forced by prefix | Explicit override |
 
 The tool doesn't know. The backend doesn't know. Dario is the seam.
 
-Beyond routing, the Claude backend is a **full Claude Code wire-level template** — every observable axis (bytes, headers, body key order, TLS stack, inter-request timing, session-id lifecycle, stream-consumption shape) is captured from your installed CC binary and mirrored on outbound requests so the upstream subscription-billing path is the one the request follows. See [`docs/wire-fidelity.md`](./docs/wire-fidelity.md).
+---
 
-**Static shape, plus behavioral shape.** v3.38 closes the temporal axis on top: post-response *think time* (delay before the next request, correlated with the previous response's output-token count — real users read before typing the next message; agent loops don't), and *session-start latency* (the first request of a new session fires after a sampled 1.2–4.2s delay, matching observed real-CC session opens, instead of at machine speed). One flag turns it on: `dario proxy --stealth`. Per-knob tuning if you need it: `--think-time-base`, `--think-time-per-token`, `--think-time-jitter`, `--session-start-min`, `--session-start-jitter`.
+## Capabilities
+
+- **Multi-account pool.** Drop 2+ Claude accounts in `~/.dario/accounts/` and pool mode auto-activates: every request routes to the account with the most headroom, multi-turn sessions pin to one account so the prompt cache survives, in-flight 429s fail over to a peer before your client sees an error. `dario accounts add work` / `dario accounts add personal`. → [`docs/multi-account-pool.md`](./docs/multi-account-pool.md)
+- **Behavioral stealth (`--stealth`).** Static wire fidelity covers *what* the request looks like; `--stealth` adds *when* it arrives — response-length-correlated think time and 1.2–4.2s session-start latency, the inter-arrival pattern real interactive sessions have and agent loops don't. → [`docs/wire-fidelity.md`](./docs/wire-fidelity.md)
+- **Runs any non-Claude-Code agent.** A 66-entry schema-verified `TOOL_MAP` pre-maps Cline, Roo, Kilo, Cursor, Windsurf, Continue, Copilot, OpenHands, OpenClaw, Hermes, [hands](https://github.com/askalf/hands) tool names to CC's native set. No flag, no validator errors. → [`docs/agent-compat.md`](./docs/agent-compat.md)
+- **Shim mode.** Take the proxy off the wire entirely — `dario shim -- claude --print "hi"` patches `globalThis.fetch` in-process. No HTTP hop, no port, no `BASE_URL`. → [`docs/shim.md`](./docs/shim.md)
+- **Recover output capability.** `dario proxy --system-prompt=partial` strips CC's tone/verbosity/no-comments constraints for ~1.2–2.8× output on open-ended work — empirically without flipping billing (the classifier doesn't read that slot; RLHF safety is in the weights, not the prompt). → [`docs/system-prompt.md`](./docs/system-prompt.md)
+- **Reachable from inside CC / any MCP client.** `dario subagent install` registers a CC sub-agent for in-session diagnostics; `dario mcp` exposes dario as a read-only MCP server. → [`docs/sub-agent.md`](./docs/sub-agent.md) · [`docs/mcp-server.md`](./docs/mcp-server.md)
 
 ---
 
-## Cost comparison
-
-Claude subscription tiers: **Pro** ($20/mo) · **Max 5x** ($100/mo) · **Max 20x** ($200/mo). Dario routes through whichever you have — pick by your usage volume, not by what dario needs.
-
-| Setup | Monthly cost (heavy single-tool user) |
-|---|---|
-| Cursor + Anthropic API direct | $80–$300 |
-| Cursor + ChatGPT Plus | $20 + per-token overage |
-| **Cursor + Claude Pro/Max + dario** | **$20 (Cursor) + $20–200 (your Claude tier) flat — every Claude call routes through your subscription** |
-| Multi-tool heavy use (Cursor + Aider + Cline + Continue) without dario | $200–$600+ |
-| **Same multi-tool use with dario** | **$20–200 flat — one Pro/Max subscription routes all of them** |
-
-Already have **Pro + Max** stacked? Pool mode (`dario accounts add work` / `dario accounts add personal`) routes across both, with session stickiness keeping multi-turn agents pinned to one account so the prompt cache survives. Tiers mix freely — dario only cares about headroom, not which plan an account is on.
-
----
-
-## Why you'll install this
-
-- **One URL for every provider.** Cursor, Aider, Continue, Zed, OpenHands, Claude Code, your own scripts — every tool you own has its own per-provider config. Dario collapses that into a single `localhost:3456` that speaks both Anthropic and OpenAI protocols and routes by model name.
-- **Your Claude subscription stops sitting idle.** Cursor, Aider, Zed, Continue all want API keys and bill per-token while your Pro / Max 5x / Max 20x plan only gets used in Claude Code. Dario routes them through your plan via Claude Code's exact wire shape.
-- **You hit rate limits on long agent runs.** Add a second / third Claude subscription with `dario accounts add work` and pool mode routes each request to whichever account has the most headroom. Session stickiness pins multi-turn conversations; in-flight 429 failover retries on a different account before your client sees the error. See [`docs/multi-account-pool.md`](./docs/multi-account-pool.md).
-- **You run a coding agent that isn't Claude Code.** Cline, Roo Code, Cursor, Windsurf, Continue.dev, GitHub Copilot, OpenHands, OpenClaw, Hermes, hands — dario's universal `TOOL_MAP` (66 schema-verified entries) pre-maps their tool names to Claude Code's native set. No flag, no validator errors. See [`docs/agent-compat.md`](./docs/agent-compat.md).
-- **You want the proxy off the wire entirely.** Shim mode is an in-process `globalThis.fetch` patch — no HTTP hop, no port to bind, no `BASE_URL`. `dario shim -- claude --print "hi"` and CC thinks it's talking directly to `api.anthropic.com`. See [`docs/shim.md`](./docs/shim.md).
-- **You want CC's behavioral constraints out of your prompt.** `dario proxy --system-prompt=partial` strips CC's Tone-and-style / Text-output / verbosity / no-comments-by-default bullets and recovers ~1.2–2.8× output capability on open-ended work — empirically without flipping subscription billing (the classifier doesn't read this slot). RLHF refusals on harmful content are unaffected (alignment is in the weights, not the prompt). See [`docs/system-prompt.md`](./docs/system-prompt.md) and the empirical writeup in [`docs/research/system-prompt.md`](./docs/research/system-prompt.md).
-- **You want dario reachable from inside Claude Code or any MCP client.** `dario subagent install` registers a CC sub-agent for in-session diagnostics ([`docs/sub-agent.md`](./docs/sub-agent.md)). `dario mcp` turns dario into a read-only MCP server ([`docs/mcp-server.md`](./docs/mcp-server.md)).
-- **You want to actually audit it.** ~13,170 lines of TypeScript across 28 files. Zero runtime dependencies. Credentials at `~/.dario/` with `0600` permissions. `127.0.0.1`-only by default. Every release [SLSA-attested](https://www.npmjs.com/package/@askalf/dario). Nothing phones home. Small enough to read in a weekend.
-- **You want a deep-research tool that runs at $0/mo.** [deepdive](https://github.com/askalf/deepdive) is dario's companion CLI — `npx @askalf/deepdive "your question"`, get a cited Markdown report. Replaces Perplexity Pro ($20/mo), OpenAI Deep Research ($20/mo), Gemini Deep Research ($20/mo) — all of which mark up LLM calls on top of LLM calls. The deep-research workload (50k–200k tokens per question, sustained) is exactly what Max was priced for; deepdive is what uses it for that.
-
----
-
-## Independently reviewed (4 LLMs)
-
-Same prompt to all four ([`reviews/PROMPT.md`](./reviews/PROMPT.md)). Each reviewer signed a verdict line. Push-back triaged in [`review-feedback`](https://github.com/askalf/dario/issues?q=label%3Areview-feedback).
-
-| Reviewer | Verdict | Full review |
-|---|---|---|
-| **Grok 4** | "Adopt if the use-case fits." | [→](./reviews/grok-4-2026-04-21.md) |
-| **Claude Opus 4.7** | "The fingerprint-replay claim is backed by the code." | [→](./reviews/claude-opus-4-7-2026-04-21.md) |
-| **Gemini 2.0 Pro** | "Technically elite, zero-dependency proxy." | [→](./reviews/gemini-2-pro-2026-04-21.md) |
-| **GPT-5.3** | "Disciplined, intentional engineering. Not vibe-coded." | [→](./reviews/gpt-5.3-2026-04-21.md) |
-
-Highlights:
-
-> "This is not vibe-coded; it reads like production-grade infrastructure that happens to be open-source." — Grok 4
->
-> "Comments consistently cite the issue number that motivated the code — which is what scar-tissue code looks like in a project that has actual users." — Claude Opus 4.7
->
-> "The implementation isn't just a simple header swap; it is a sophisticated request-level deepfake." — Gemini 2.0 Pro
->
-> "Not 'best-effort mimicry'; it's capture-and-replay of a real client." — GPT-5.3
-
----
-
-## Who this is for
-
-**Best fit:**
-
-- Developers using multiple LLMs across multiple tools tired of juggling base URLs, keys, and per-tool provider configs.
-- Claude Pro / Max subscribers who want their subscription usable from every tool on their machine, not just Claude Code.
-- Teams running local or hosted OpenAI-compat servers (LiteLLM, vLLM, Ollama, Groq, OpenRouter, self-hosted) who want one stable local endpoint every tool can reuse.
-- [Claude Agent SDK](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk) users who want OAuth-subscription routing under the SDK. Point `baseURL: 'http://localhost:3456'` and dario translates API-key calls into your Claude subscription auth — agent code stays identical.
-- Power users on multi-agent workloads who want multi-account pooling, session stickiness, and in-flight 429 failover on their own machine, against their own subscriptions.
-
-**Not a fit:**
-
-- You need vendor-managed production SLAs on every request. Use the provider APIs directly.
-- You need a hosted, multi-tenant, managed routing platform with a dashboard, team auth, and support contracts. Dario is a local, single-user tool — the [askalf platform](https://askalf.org) is the right surface for the team / fleet case.
-- You want a chat UI. Use claude.ai or chatgpt.com.
-
----
-
-## Backends
-
-Dario's routing is organized around **backends**. Each is a swappable adapter — add one, your tools reach it through `localhost:3456` in whichever API shape they already speak. Run zero, one, or all concurrently.
-
-### 1. OpenAI-compat backend
-
-Any provider that speaks the OpenAI Chat Completions API.
-
-```bash
-dario backend add openai     --key=sk-proj-...
-dario backend add groq       --key=gsk_...   --base-url=https://api.groq.com/openai/v1
-dario backend add openrouter --key=sk-or-... --base-url=https://openrouter.ai/api/v1
-dario backend add local      --key=anything  --base-url=http://127.0.0.1:4000/v1
-```
-
-Credentials live at `~/.dario/backends/<name>.json` with mode `0600`. Body forwarded as-is, only the `Authorization` header is swapped, streaming forwarded byte-for-byte. Force a specific backend with a [provider prefix](./docs/usage.md#provider-prefix) on the model field.
-
-### 2. Claude subscription backend
-
-OAuth-backed Claude Pro / Max 5x / Max 20x, billed against your plan instead of the API. Activated by `dario login` (or `dario login --manual` for SSH / container setups, v3.20). Any tier with Claude Code access works — see [`docs/faq.md`](./docs/faq.md).
-
-Every outbound Claude request is rebuilt to match a request Claude Code itself would make — system prompt, tool definitions, identity headers, billing tag, beta flags, header insertion order, static header values, `anthropic-beta` flag set, top-level request-body key order — using a live-extracted template from your actually-installed CC binary that self-heals on every upstream CC release.
-
-Key mechanisms in brief: live template extraction from your installed `claude` binary, drift detection with forced refresh on mismatch, OAuth config auto-detection (so dario picks up Anthropic-side rotations on the next run), atomic cache writes, framework scrubbing (third-party identity markers stripped from system prompt), Bun auto-relaunch (so the TLS ClientHello matches CC's runtime). `dario proxy --passthrough` does an OAuth swap and nothing else — use it when the upstream tool already builds a Claude-Code-shaped request.
-
-What this addresses: per-request fidelity. What it can't address alone: cumulative per-OAuth-session aggregates. The v3.22 – v3.28 wire-fidelity track closed six of those axes (body order, TLS, pacing, stream-drain, session-id lifecycle, MCP/sub-agent surface — see [`docs/wire-fidelity.md`](./docs/wire-fidelity.md)); for anything left, [pool mode](./docs/multi-account-pool.md) distributes load across multiple subscriptions.
-
----
-
-## Multi-account pool mode
-
-Pool mode activates automatically when `~/.dario/accounts/` contains 2+ accounts. Each request picks the account with the highest headroom; multi-turn agent sessions pin to one account so the Anthropic prompt cache survives; in-flight 429s retry on a different account before the client sees an error.
-
-```bash
-dario accounts add work
-dario accounts add personal
-dario proxy
-```
-
-Full details, headroom math, sticky-key implementation, inspection endpoints: [`docs/multi-account-pool.md`](./docs/multi-account-pool.md).
-
----
-
-## Shim mode (experimental)
-
-Take the proxy off the wire entirely. `dario shim -- <child cmd>` patches `globalThis.fetch` inside the child via `NODE_OPTIONS=--require`. No localhost HTTP hop. No port to bind. No `BASE_URL`.
-
-```bash
-dario shim -- claude --print "hello"
-```
-
-When to use it, when to stay on the proxy, hardening detail: [`docs/shim.md`](./docs/shim.md).
-
----
-
-## Agent compatibility
-
-Dario's `TOOL_MAP` (66 schema-verified entries) covers every major coding agent — Cline, Roo Code, Kilo Code, Cursor, Windsurf, Continue.dev, GitHub Copilot, OpenHands, OpenClaw, Hermes, [hands](https://github.com/askalf/hands). Tool calls translate to CC's native set on the outbound path (subscription wire shape preserved) and rebuild to your agent's exact expected shape on the inbound path.
-
-Text-tool clients (Cline / Kilo / Roo) and identity-detected agents (`hands`, `arnie`, Hermes) auto-flip into preserve-tools mode via system-prompt identity markers. A structural fallback catches in-house non-CC agents (3+ tools, ≥80% unmapped) and flips them too.
-
-Per-tool setup (Cursor, Continue, Aider, Cline, Zed, OpenHands), the `--preserve-tools` / `--hybrid-tools` decision matrix, and the full agent table all live in [`docs/agent-compat.md`](./docs/agent-compat.md).
-
-### Custom tool schemas
-
-If your agent's tool names aren't pre-mapped and its tools carry fields CC's schema doesn't have, you have two escape hatches:
-
-- **`--preserve-tools`** — forward your schema verbatim, lose the CC wire shape (and likely the subscription-billing wire shape with it).
-- **`--hybrid-tools`** — keep the CC wire shape, fill request-context fields (`sessionId`, `requestId`, `channelId`, `userId`, `timestamp`) from headers on the reverse path. The compromise that keeps both.
-
-Full when-to-use-which decision matrix and request-context field set: [`docs/agent-compat.md#custom-tool-schemas`](./docs/agent-compat.md#custom-tool-schemas).
-
----
-
-## Trust and transparency
+## Trust & transparency
 
 | Signal | Status |
 |---|---|
-| **Source code** | ~13,170 lines of TypeScript across 28 files — small enough to audit in a weekend |
-| **Dependencies** | 0 runtime dependencies. Verify: `npm ls --production` |
-| **npm provenance** | Every release is [SLSA-attested](https://www.npmjs.com/package/@askalf/dario) via GitHub Actions with sigstore provenance attached to the transparency log |
-| **Security scanning** | [CodeQL](https://github.com/askalf/dario/actions/workflows/codeql.yml) on every push and weekly |
-| **Test footprint** | ~1,535 assertions across 57 test suites. Full `npm test` green on every release |
-| **Credential handling** | Tokens and API keys never logged, redacted from errors, stored with `0600` permissions. MCP server (v3.27) redacts keys at the tool boundary too — not even a `sk-…` prefix leaks. |
-| **OAuth flow** | PKCE, no client secret. `--manual` flow for headless setups (v3.20). |
-| **Network scope** | Binds to `127.0.0.1` by default. `--host` allows LAN/mesh with `DARIO_API_KEY` gating. Upstream traffic goes only to configured backend target URLs over HTTPS. |
-| **SSRF protection** | `/v1/messages` hits `api.anthropic.com` only; `/v1/chat/completions` hits the configured backend `baseUrl` only — hardcoded allowlist |
-| **Telemetry** | None. Zero analytics, tracking, or data collection. The MCP server and CC sub-agent are read-only by design. |
-| **Audit trail** | [CHANGELOG.md](CHANGELOG.md) documents every release with file-level rationale |
-
-Verify the npm tarball matches this repo:
+| Source | ~13,170 lines of TypeScript, 28 files — auditable in a weekend |
+| Dependencies | **0 runtime.** Verify: `npm ls --production` |
+| Provenance | Every release [SLSA-attested](https://www.npmjs.com/package/@askalf/dario) via GitHub Actions + sigstore |
+| Scanning | [CodeQL](https://github.com/askalf/dario/actions/workflows/codeql.yml) on every push and weekly |
+| Tests | ~1,535 assertions across 57 suites — green on every release |
+| Credentials | Never logged, redacted from errors, `0600` on disk; MCP server redacts at the tool boundary |
+| Network | Binds `127.0.0.1` by default; upstream only to configured backends over HTTPS; hardcoded SSRF allowlist |
+| Telemetry | **None.** No analytics, no tracking, no data collection |
 
 ```bash
 npm audit signatures
@@ -280,115 +172,104 @@ cd $(npm root -g)/@askalf/dario && npm ls --production
 
 ---
 
+## Who it's for
+
+**Best fit:** developers juggling multiple LLM tools and per-tool API keys · Claude Pro/Max subscribers who want their plan usable everywhere, not just in Claude Code · teams running local/hosted OpenAI-compat servers who want one stable local endpoint · Agent SDK users who want OAuth-subscription routing with zero code change (`baseURL: 'http://localhost:3456'`) · power users wanting multi-account pooling + 429 failover on their own machine.
+
+**Not a fit:** you need vendor-managed production SLAs (use the provider APIs) · you need a hosted multi-tenant platform with a dashboard and team auth (that's the [askalf platform](https://askalf.org)) · you want a chat UI (use claude.ai).
+
+---
+
 ## Commands
 
-`dario login`, `dario proxy`, `dario doctor`, `dario accounts {list,add,remove}`, `dario backend {list,add,remove}`, `dario shim`, `dario mcp`, `dario subagent {install,status,remove}`, `dario usage`, `dario config`, `dario upgrade`, `dario status`, `dario refresh`, `dario logout`, `dario help`.
+`dario login` · `proxy` · `doctor` · `accounts {list,add,remove}` · `backend {list,add,remove}` · `shim` · `mcp` · `subagent {install,status,remove}` · `usage` · `config` · `upgrade` · `status` · `refresh` · `logout` · `help`
 
-Full flag/env reference + endpoint list: [`docs/commands.md`](./docs/commands.md).
-
-SDK examples (Python / TypeScript / curl) + per-tool setup: [`docs/usage.md`](./docs/usage.md).
+Full flag/env reference: [`docs/commands.md`](./docs/commands.md) · SDK examples + per-tool setup: [`docs/usage.md`](./docs/usage.md)
 
 ---
 
 ## FAQ
 
-The most-asked questions. Full FAQ in [`docs/faq.md`](./docs/faq.md).
-
-**Does this violate Anthropic's terms of service?**
-Mechanically: dario uses your existing Claude Code credentials with the same OAuth tokens CC uses. It authenticates you as you, with your subscription, through Anthropic's official endpoints. Whether any particular use complies with their current terms is between you and Anthropic — consult their terms and your subscription agreement. Independent, unofficial, third-party — see [DISCLAIMER.md](DISCLAIMER.md).
+**Does this violate Anthropic's terms?**
+Mechanically, dario uses your existing Claude Code OAuth tokens — it authenticates you as you, with your subscription, through Anthropic's official endpoints. Whether any particular use complies with current terms is between you and Anthropic; consult their terms and your agreement. Independent, unofficial, third-party — see [DISCLAIMER.md](DISCLAIMER.md).
 
 **Do I need Claude Code installed?**
-Recommended, not strictly required. With CC installed, `dario login` picks up your credentials automatically and the live template extractor reads your CC binary on every startup. Without CC, dario runs its own OAuth flow and falls back to the bundled (scrubbed) template snapshot.
+Recommended, not required. With CC, `dario login` picks up credentials automatically and the live template extractor reads your binary on every startup. Without it, dario runs its own OAuth flow and falls back to the bundled (scrubbed) template snapshot.
 
 **Do I need Bun?**
-Optional, strongly recommended for Claude-backend requests so the TLS ClientHello matches CC's runtime. Without Bun it works fine — `dario doctor` surfaces the mismatch as of v3.23 and `--strict-tls` refuses to start until resolved.
+Optional, recommended — Bun's TLS ClientHello matches CC's runtime. Without it dario works fine; `dario doctor` flags the mismatch and `--strict-tls` hard-fails until resolved.
 
 **Can I use dario without a Claude subscription?**
-Yes. Skip `dario login`, `dario backend add openai --key=...` and you have a local OpenAI-compat router with no Claude involvement.
+Yes. Skip `dario login`, `dario backend add openai --key=…`, and you have a local OpenAI-compat router with no Claude involvement.
 
-**Something's wrong. Where do I start?**
-`dario doctor`. One command, paste-ready report. If you're inside CC, `dario subagent install` once and ask CC to "use the dario sub-agent to run doctor."
+**`representative-claim: seven_day` in my rate-limit headers — am I downgraded?**
+No. `five_hour` and `seven_day` are both subscription billing — different accounting buckets, same mode. `overage` is the one that flips you to per-token. [Discussion #1](https://github.com/askalf/dario/discussions/1).
 
-**I used dario before, drifted to another tool, now coming back — anything to redo?**
-No reinstall. `dario login` re-uses any existing Claude Code credentials on your machine. If you also picked up Codex CLI / OpenAI in the gap, `dario backend add openai --key=$OPENAI_API_KEY` puts both your subscription path and your OpenAI fallback on the same `localhost:3456`. Full returner walkthrough: [`docs/returning.md`](./docs/returning.md).
+**Will the 2026-06-15 split break my dario setup?**
+No — see [The deadline](#the-deadline-2026-06-15) above. dario rewrites every request to interactive-CC shape before it reaches `api.anthropic.com`; the classifier sees interactive CC, not `claude -p`/Agent SDK, regardless of the local tool.
 
-**I'm seeing `representative-claim: seven_day` in my rate-limit headers — am I being downgraded?**
-**No.** Both `five_hour` and `seven_day` are subscription billing — different accounting buckets inside the same subscription mode. `overage` is the one that flips you to per-token. See [Discussion #1](https://github.com/askalf/dario/discussions/1) for the full rate-limit-header breakdown.
-
-**I heard Anthropic is moving `claude -p` and Agent SDK to a separate credit pool on 2026-06-15. Will my dario setup break?**
-**No.** Dario rewrites every outbound request to look like an interactive Claude Code session before it hits `api.anthropic.com` — headers, body, TLS, session-id lifecycle. The upstream billing classifier sees interactive CC, not `claude -p` or Agent SDK, regardless of which local tool originated the call. Your workloads continue billing against your existing Pro / Max 5x / Max 20x subscription pool, same as today. Naive proxies that pass `claude -p` requests through unchanged will see their users' agentic traffic shift to the new $20–200/mo credit pool and then to metered API pricing — but that's not how dario was built. See the [2026-06-15 section](#what-changes-2026-06-15-and-why-dario-doesnt) above for the full breakdown.
+Full FAQ: [`docs/faq.md`](./docs/faq.md)
 
 ---
 
 ## Technical deep dives
 
-- [#183 — CC's system prompt is 27kB. Modifying it doesn't change your billing. Stripping its behavioral constraints recovers 1.2–2.8× output capability.](https://github.com/askalf/dario/discussions/183) — productized as `--system-prompt=partial` in v3.34.0
-- [#178 — Anthropic's billing classifier fingerprints `openclaw.inbound_meta.v1`](https://github.com/askalf/dario/discussions/178) — reproducing Theo Browne's finding with controlled variants
-- [#172 — Re-testing #13: the system prompt is not a fingerprint signal](https://github.com/askalf/dario/discussions/172)
-- [#68 — dario vs LiteLLM / OpenRouter / Kong AI Gateway (when each one wins)](https://github.com/askalf/dario/discussions/68)
+- [#183 — CC's 27kB system prompt: modifying it doesn't change billing; stripping its constraints recovers 1.2–2.8× output](https://github.com/askalf/dario/discussions/183)
+- [#178 — Anthropic's billing classifier fingerprints `openclaw.inbound_meta.v1`](https://github.com/askalf/dario/discussions/178)
+- [#68 — dario vs LiteLLM / OpenRouter / Kong AI Gateway (when each wins)](https://github.com/askalf/dario/discussions/68)
 - [#14 — Template Replay: why we stopped matching signals](https://github.com/askalf/dario/discussions/14)
 - [#13 — Claude Code's "defaults" are detection signals, not optimizations](https://github.com/askalf/dario/discussions/13)
-- [#39 — Why your Claude Max usage is burning in minutes](https://github.com/askalf/dario/discussions/39)
-- [#9 — Why Opus feels worse through other proxies and how to fix it](https://github.com/askalf/dario/discussions/9)
-- [#8 — Billing tag algorithm and fingerprint analysis](https://github.com/askalf/dario/discussions/8)
-- [#1 — Rate limit header analysis](https://github.com/askalf/dario/discussions/1)
-
-The CHANGELOG documents every v3.22 – v3.28 wire-fidelity release with file-level rationale; each one is worth reading as a standalone post on the axis it closes.
+- [#1 — Rate-limit header analysis](https://github.com/askalf/dario/discussions/1)
 
 ---
 
 ## Contributing
 
-PRs welcome. Small TypeScript codebase — ~13,170 lines, 28 files, zero runtime dependencies. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the architecture overview and the file-by-file map.
+PRs welcome. Small TypeScript codebase, zero runtime deps. Architecture + file-by-file map in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ```bash
-git clone https://github.com/askalf/dario
-cd dario
+git clone https://github.com/askalf/dario && cd dario
 npm install
-npm run dev   # runs with tsx, no build step
-npm test      # ~1,535 assertions across 57 suites
-npm run e2e   # live proxy + OAuth (requires a working Claude backend)
+npm run dev    # tsx, no build step
+npm test       # ~1,535 assertions, 57 suites
+npm run e2e    # live proxy + OAuth (needs a working Claude backend)
 ```
 
----
-
-## Contributors
+### Contributors
 
 | Who | Contributions |
 |---|---|
-| [@GodsBoy](https://github.com/GodsBoy) | Proxy authentication, token redaction, error sanitization ([#2](https://github.com/askalf/dario/pull/2)) |
-| [@belangertrading](https://github.com/belangertrading) | Billing classification investigation ([#4](https://github.com/askalf/dario/issues/4)), cache_control fingerprinting ([#6](https://github.com/askalf/dario/issues/6)), billing reclassification root cause ([#7](https://github.com/askalf/dario/issues/7)), OAuth client_id discovery ([#12](https://github.com/askalf/dario/issues/12)), multi-agent session-level billing analysis ([#23](https://github.com/askalf/dario/issues/23)) |
+| [@GodsBoy](https://github.com/GodsBoy) | Proxy auth, token redaction, error sanitization ([#2](https://github.com/askalf/dario/pull/2)) |
+| [@belangertrading](https://github.com/belangertrading) | Billing-classification investigation ([#4](https://github.com/askalf/dario/issues/4), [#6](https://github.com/askalf/dario/issues/6), [#7](https://github.com/askalf/dario/issues/7), [#12](https://github.com/askalf/dario/issues/12), [#23](https://github.com/askalf/dario/issues/23)) |
 | [@iNicholasBE](https://github.com/iNicholasBE) | macOS keychain credential detection ([#30](https://github.com/askalf/dario/pull/30)) |
-| [@boeingchoco](https://github.com/boeingchoco) | Reverse-direction tool parameter translation ([#29](https://github.com/askalf/dario/issues/29)), SSE event-group framing regression catch (v3.7.1), provider-comparison diagnostic, motivating case for hybrid tool mode ([#33](https://github.com/askalf/dario/issues/33), v3.9.0), OpenClaw tool-mapping root cause ([#36](https://github.com/askalf/dario/issues/36)) |
-| [@tetsuco](https://github.com/tetsuco) | Framework-name path corruption in scrubber ([#35](https://github.com/askalf/dario/issues/35)), OpenClaw Bash/Glob reverse-mapping collisions ([#37](https://github.com/askalf/dario/issues/37)), 20x-tier capture-artifact + OAuth-scope rejection report ([#42](https://github.com/askalf/dario/issues/42)) |
-| [@mikelovatt](https://github.com/mikelovatt) | Silent subscription-percent drain surfaced via friendly billing buckets ([#34](https://github.com/askalf/dario/issues/34)) |
-| [@ringge](https://github.com/ringge) | Fingerprint-fidelity concern motivating `--no-auto-detect` for text-tool-client auto-preserve ([#40](https://github.com/askalf/dario/issues/40), v3.20.1) |
-| [@earlvanze](https://github.com/earlvanze) | OpenClaw tool mappings + missing CC tools ([#19](https://github.com/askalf/dario/pull/19)), OAuth manual-override escape hatch ([#47](https://github.com/askalf/dario/pull/47)), HTTPS warning for non-secure overrides ([#53](https://github.com/askalf/dario/pull/53)) |
+| [@boeingchoco](https://github.com/boeingchoco) | Reverse tool-param translation ([#29](https://github.com/askalf/dario/issues/29)), SSE framing regression catch, hybrid-tool motivation ([#33](https://github.com/askalf/dario/issues/33), [#36](https://github.com/askalf/dario/issues/36)) |
+| [@tetsuco](https://github.com/tetsuco) | Scrubber path corruption ([#35](https://github.com/askalf/dario/issues/35)), OpenClaw reverse-mapping collisions ([#37](https://github.com/askalf/dario/issues/37)), 20x-tier report ([#42](https://github.com/askalf/dario/issues/42)) |
+| [@mikelovatt](https://github.com/mikelovatt) | Silent subscription-drain surfaced via friendly billing buckets ([#34](https://github.com/askalf/dario/issues/34)) |
+| [@ringge](https://github.com/ringge) | `--no-auto-detect` for text-tool auto-preserve ([#40](https://github.com/askalf/dario/issues/40)) |
+| [@earlvanze](https://github.com/earlvanze) | OpenClaw tool mappings ([#19](https://github.com/askalf/dario/pull/19)), OAuth manual override ([#47](https://github.com/askalf/dario/pull/47)), HTTPS warning ([#53](https://github.com/askalf/dario/pull/53)) |
 
 ---
+
+> **dario is the open-source wedge of [askalf](https://askalf.org)** — the AI workforce platform we're building. Dario solves the Claude subscription problem so the rest of the workforce runs on flat-rate billing. Star the repo or follow [@ask_alf](https://x.com/ask_alf) for platform updates.
 
 ## Disclaimers
 
-**dario is an independent, unofficial, third-party project.** Not affiliated with, endorsed by, or sponsored by Anthropic, OpenAI, or any other vendor referenced in the code or documentation. Provided as-is with no warranty. You are solely responsible for compliance with your subscription's terms of service, the security of your credentials, and the content you send through the proxy. Not intended for safety-critical, regulated, or production-grade environments without your own independent review. See [DISCLAIMER.md](DISCLAIMER.md) for full text.
-
----
+**dario is an independent, unofficial, third-party project.** Not affiliated with, endorsed by, or sponsored by Anthropic, OpenAI, or any vendor referenced here. Provided as-is, no warranty. You are solely responsible for compliance with your subscription's terms, the security of your credentials, and the content you send through the proxy. Not for safety-critical, regulated, or production environments without your own review. Full text: [DISCLAIMER.md](DISCLAIMER.md).
 
 ## License
 
 MIT — see [LICENSE](LICENSE) and [DISCLAIMER.md](DISCLAIMER.md).
 
----
-
 ## Also by askalf
 
 | Project | What it does |
-|---------|-------------|
-| [arnie](https://github.com/askalf/arnie) | Portable IT troubleshooting companion. Networking, AD, Windows Update, package managers, log triage, hardware checks. |
-| [browser-bridge](https://github.com/askalf/browser-bridge) | Stealth headless Chromium in a container. CDP on 9222 — Playwright/Puppeteer/MCP-compatible. |
-| [claude-bridge](https://github.com/askalf/claude-bridge) | Bridge Claude Code sessions to Discord. |
-| [deepdive](https://github.com/askalf/deepdive) | Local research agent. Plan → search → fetch → extract → synthesize. Cited answers. |
-| [git-providers](https://github.com/askalf/git-providers) | Unified GitHub + GitLab + Bitbucket Cloud REST clients behind one GitProvider interface. Plus a 44-entry api-key-provider taxonomy. |
-| [hands](https://github.com/askalf/hands) | Cross-platform computer-use agent. Mouse, keyboard, screen. |
-| [install-kit](https://github.com/askalf/install-kit) | curl-pipe-bash template for self-hosted Docker apps. |
-| [pgflex](https://github.com/askalf/pgflex) | One Postgres API. Two modes (real PG ↔ PGlite WASM). |
-| [redisflex](https://github.com/askalf/redisflex) | One Redis API. Two modes (ioredis ↔ in-process). |
+|---|---|
+| [arnie](https://github.com/askalf/arnie) | Portable IT troubleshooting companion — networking, AD, package managers, log triage |
+| [browser-bridge](https://github.com/askalf/browser-bridge) | Stealth headless Chromium in a container, CDP on 9222 |
+| [claude-bridge](https://github.com/askalf/claude-bridge) | Bridge Claude Code sessions to Discord |
+| [deepdive](https://github.com/askalf/deepdive) | Local research agent — plan → search → fetch → synthesize, cited answers |
+| [git-providers](https://github.com/askalf/git-providers) | Unified GitHub + GitLab + Bitbucket Cloud clients behind one interface |
+| [hands](https://github.com/askalf/hands) | Cross-platform computer-use agent — mouse, keyboard, screen |
+| [install-kit](https://github.com/askalf/install-kit) | curl-pipe-bash template for self-hosted Docker apps |
+| [pgflex](https://github.com/askalf/pgflex) | One Postgres API, two modes (real PG ↔ PGlite WASM) |
+| [redisflex](https://github.com/askalf/redisflex) | One Redis API, two modes (ioredis ↔ in-process) |
