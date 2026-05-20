@@ -66,6 +66,12 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, dario-drift]
     timeout-minutes: 10
+    # Promote the API-key secret into job-level env so step-level `if:`
+    # conditions can read it. GitHub Actions disallows `secrets.X` inside
+    # `if:` expressions (only env/github/inputs/job/etc. are allowed),
+    # so we surface it as an env var first. Empty string when unset.
+    env:
+      COMPAT_API_KEY: ${{ secrets.ANTHROPIC_COMPAT_API_KEY }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
 
@@ -80,6 +86,10 @@ jobs:
           npm run build
 
       - name: Start dario proxy (passthrough mode)
+        # Skip when ANTHROPIC_COMPAT_API_KEY is set — compat in API-key
+        # mode hits Anthropic directly and doesn't need a local dario.
+        # Saves ~15s of wall time + avoids running an unused process.
+        if: env.COMPAT_API_KEY == ''
         # OAuth credential: the previous v4.4.1 design pinned HOME to
         # /root/.claude-runner to isolate this workflow's OAuth from any
         # other CC client sharing /root/.claude/. In practice that meant
@@ -135,10 +145,22 @@ jobs:
 
       - name: Run compat tests
         id: compat
-        # DARIO_TEST_URL points test/compat.mjs at the workflow's :3457
-        # proxy, not the platform's :3456 one.
+        # DARIO_TEST_API_KEY (when set): compat bypasses dario and hits
+        # Anthropic directly with x-api-key. Subscription-OAuth + dario
+        # passthrough trips Anthropic's per-minute cap at ~3/min,
+        # making the suite permanently red regardless of pacing — an
+        # API key sidesteps that pool entirely. Dario-specific tests
+        # (no-injection, betas-preserved, OpenAI compat) skip in this
+        # mode. See docs/recovery.md "Compat suite 429s" for the full
+        # diagnosis chain.
+        #
+        # If the secret is missing, the test still runs against dario
+        # at :3457 (legacy behavior — useful for local debugging).
+        # CI will be red until the secret is provisioned, but that's
+        # the same state as before this PR.
         env:
           DARIO_TEST_URL: http://127.0.0.1:3457
+          DARIO_TEST_API_KEY: ${{ secrets.ANTHROPIC_COMPAT_API_KEY }}
         run: |
           set +e
           # `node test/compat.mjs | tee` — without pipefail, `$?` captures
@@ -153,7 +175,7 @@ jobs:
           echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
 
       - name: Stop dario proxy
-        if: always()
+        if: always() && env.COMPAT_API_KEY == ''
         run: |
           if [ -f proxy.pid ]; then
             pid=$(cat proxy.pid)
