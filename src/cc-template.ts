@@ -54,6 +54,13 @@ export function filterToolsForPlatform<T extends { name: string }>(
 /** CC's exact tool definitions for the current platform — filtered from the bundled union. */
 export const CC_TOOL_DEFINITIONS = filterToolsForPlatform(TEMPLATE.tools, process.platform);
 
+/** Lowercased CC tool name → canonical name, for identity-matching a CC client's
+ *  own tools (so newer built-ins not yet in TOOL_MAP map to themselves rather
+ *  than being treated as foreign and round-robined). Tracks the live bundle. */
+export const CC_NATIVE_LOWER: Map<string, string> = new Map(
+  CC_TOOL_DEFINITIONS.map((t) => [String((t as { name: string }).name).toLowerCase(), String((t as { name: string }).name)]),
+);
+
 /** CC's static system prompt (~25KB). */
 export const CC_SYSTEM_PROMPT = TEMPLATE.system_prompt;
 
@@ -1329,7 +1336,19 @@ export function buildCCRequest(
     const claimedCC = new Set<string>();
     for (const tool of clientTools) {
       const name = (tool.name as string || '').toLowerCase();
-      const mapping = TOOL_MAP[name];
+      // A CC client's OWN tools map to THEMSELVES (identity). TOOL_MAP only
+      // carries the legacy core surface + cross-client aliases, so it lags CC's
+      // newer built-ins (Agent, AskUserQuestion, Cron*, Task*, NotebookEdit,
+      // Enter/ExitPlanMode, Workflow, …). Without this, those land "unmapped",
+      // get round-robined onto Read/Bash/etc., and the collision corrupts the
+      // calls of the tools that DID map (the dock saw Read's `file_path` arrive
+      // as `path`/`filePath`). Identity-matching against the live CC tool set
+      // (CC_NATIVE_LOWER, refreshed by every capture-and-bake) fixes it for
+      // every current-and-future CC client and keeps the canonical CC fingerprint.
+      const mapping = TOOL_MAP[name]
+        ?? (CC_NATIVE_LOWER.get(name)
+            ? { ccTool: CC_NATIVE_LOWER.get(name)!, translateArgs: (a: Record<string, unknown>) => a, translateBack: (a: Record<string, unknown>) => a }
+            : undefined);
       if (mapping) {
         // In hybrid mode, clone the shared mapping and attach the
         // client-declared top-level field names from input_schema.
@@ -1365,7 +1384,7 @@ export function buildCCRequest(
     const CC_FALLBACK_TOOLS = ['Bash', 'Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'];
     for (const tool of clientTools) {
       const name = (tool.name as string || '').toLowerCase();
-      if (TOOL_MAP[name]) continue;
+      if (TOOL_MAP[name] || CC_NATIVE_LOWER.has(name)) continue; // mapped, or a CC-native tool (identity in pass 1)
       unmappedTools.push(tool.name as string);
       if (opts.hybridTools) continue; // dropped — see comment above
       // Default mode: round-robin distribution. Exclude CC tools the client
