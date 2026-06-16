@@ -372,15 +372,19 @@ MIT — see [LICENSE](LICENSE) and [DISCLAIMER.md](DISCLAIMER.md).
 
 dario is the routing layer of **[Own Your Stack](https://github.com/askalf)** — open tools for owning your AI infrastructure instead of renting it by the token. One subscription. Your box. Your terms.
 
-| Tool | |
-|---|---|
-| **[dario](https://github.com/askalf/dario)** | own your routing — your subscription, in any tool *(you are here)* |
-| **[deepdive](https://github.com/askalf/deepdive)** | own your research — local agent, cited answers |
-| **[hands](https://github.com/askalf/hands)** | own your computer-use — your LLM on your own mouse & keyboard |
-| **[agent](https://github.com/askalf/agent)** | own your fleet — connect any device, dispatch real work |
-| **[browser-bridge](https://github.com/askalf/browser-bridge)** | own your browser — stealth headless Chromium, your CDP endpoint |
-| **[claude-sync](https://github.com/askalf/claude-sync)** | own your sessions — sync Claude Code across machines |
-| **[askalf platform](https://askalf.org)** | own your operation — the self-hosted AI workforce, running on this stack |
+- **[dario](https://github.com/askalf/dario)** — own your routing _(you are here)_
+- **[hybrid](https://github.com/askalf/hybrid)** — own your inference
+- **[deja](https://github.com/askalf/deja)** — own your LLM cache
+- **[deepdive](https://github.com/askalf/deepdive)** — own your research
+- **[hands](https://github.com/askalf/hands)** — own your computer-use
+- **[agent](https://github.com/askalf/agent)** — own your fleet
+- **[browser-bridge](https://github.com/askalf/browser-bridge)** — own your browser
+- **[warden](https://github.com/askalf/warden)** — own your agent security
+- **[canon](https://github.com/askalf/canon)** — own your agent skills
+- **[keeper](https://github.com/askalf/keeper)** — own your agent secrets
+- **[claude-sync](https://github.com/askalf/claude-sync)** — own your sessions
+- **[amnesia](https://github.com/askalf/amnesia)** — own your search
+- **[askalf platform](https://askalf.org)** — own your operation
 
 ---
 
